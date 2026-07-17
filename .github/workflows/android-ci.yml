@@ -35,11 +35,19 @@ jobs:
           gradle-version: "9.5.0"
           cache-provider: basic
 
-      - name: Install Android SDK packages
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools platforms;android-37 build-tools;36.0.0"
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+
+      - name: Verify toolchain
         shell: bash
         run: |
-          yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platforms;android-37" "build-tools;36.0.0" "platform-tools"
+          java -version
+          gradle --version
+          sdkmanager --list_installed
 
       - name: Run core tests and build debug APK
         run: gradle --no-daemon --stacktrace :game-core:test :app:assembleDebug
