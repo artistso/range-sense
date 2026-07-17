@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -36,6 +37,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.soquarky.rangesense.core.AssuranceEvidenceBuilder
 import com.soquarky.rangesense.core.GameAction
 import com.soquarky.rangesense.core.GameEngine
 import com.soquarky.rangesense.core.GameState
@@ -231,6 +233,7 @@ private fun SolutionPanel(state: GameState, dispatch: (GameAction) -> Unit, modi
 @Composable
 private fun Debrief(state: GameState, onNext: () -> Unit) {
     val result = requireNotNull(state.result)
+    val evidence = remember(state) { AssuranceEvidenceBuilder.build(state) }
     Row(Modifier.fillMaxSize().padding(24.dp), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
         TacticalViewport(state, enabled = false, modifier = Modifier.weight(1.4f).fillMaxHeight())
         Column(
@@ -254,6 +257,22 @@ private fun Debrief(state: GameState, onNext: () -> Unit) {
             Text("TIER POINTS ${result.officialTierPoints}")
             Text("GAME SCORE ${result.gameScore}", fontSize = 26.sp, fontWeight = FontWeight.Bold)
             Text(result.explanation)
+            HorizontalDivider()
+            Text("ASSURANCE EVIDENCE", fontWeight = FontWeight.Bold)
+            Text(
+                evidence.sha256Hex,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 10.sp,
+            )
+            Text(
+                "Schema ${evidence.schemaVersion} · evidence ID ${evidence.shortId}",
+                color = TacticalAmber,
+                fontSize = 11.sp,
+            )
+            Text(
+                "Digest covers the deterministic mission, selected cues, fusion state, submission, and result.",
+                fontSize = 11.sp,
+            )
             Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) { Text("NEXT MISSION") }
         }
     }
