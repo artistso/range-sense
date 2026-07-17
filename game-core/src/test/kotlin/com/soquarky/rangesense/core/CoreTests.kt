@@ -56,6 +56,55 @@ class CoreTests {
     }
 
     @Test
+    fun nonFiniteEvidenceFailsClosedAtGateAndFusion() {
+        val reading = SensorReading(
+            sensorType = SensorType.GEOMETRIC,
+            estimateMeters = Double.POSITIVE_INFINITY,
+            sigmaMeters = 10.0,
+            observedInformationPerMeterSquared = 0.01,
+            nuisanceCoupling = 0.2,
+            conditionalInformationPerMeterSquared = 0.005,
+            hardFailure = false,
+            failureReason = null,
+        )
+
+        assertFalse(FisherGate.evaluate(reading).open)
+
+        val forcedOpenGate = GateDecision(
+            sensorType = SensorType.GEOMETRIC,
+            open = true,
+            retainedFraction = 0.5,
+            reason = "adversarial test fixture",
+        )
+        val fusion = SensorFusion.fuse(
+            selected = setOf(SensorType.GEOMETRIC),
+            readings = mapOf(SensorType.GEOMETRIC to reading),
+            gates = mapOf(SensorType.GEOMETRIC to forcedOpenGate),
+        )
+
+        assertEquals(null, fusion.estimateMeters)
+        assertEquals(null, fusion.sigmaMeters)
+        assertTrue(fusion.contributors.isEmpty())
+        assertFalse(fusion.trustworthy)
+    }
+
+    @Test
+    fun conditionalInformationCannotExceedObservedInformation() {
+        val reading = SensorReading(
+            sensorType = SensorType.SPECTRAL,
+            estimateMeters = 5_000.0,
+            sigmaMeters = 20.0,
+            observedInformationPerMeterSquared = 0.0025,
+            nuisanceCoupling = 0.1,
+            conditionalInformationPerMeterSquared = 0.003,
+            hardFailure = false,
+            failureReason = null,
+        )
+
+        assertFalse(FisherGate.evaluate(reading).open)
+    }
+
+    @Test
     fun assuranceEvidenceIsDeterministic() {
         val first = AssuranceEvidenceBuilder.build(
             completedState(8183L, listOf(SensorType.SPECTRAL, SensorType.GEOMETRIC)),
