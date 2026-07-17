@@ -3,6 +3,7 @@ agp = "9.3.0"
 kotlin = "2.4.0"
 composeBom = "2026.06.00"
 activityCompose = "1.13.0"
+cyclonedx = "3.2.4"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
@@ -17,3 +18,4 @@ androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+cyclonedx-bom = { id = "org.cyclonedx.bom", version.ref = "cyclonedx" }
