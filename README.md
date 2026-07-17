@@ -1,6 +1,6 @@
 # RANGE SENSE — Android Native Vertical Slice
 
-Native Kotlin conversion of the earlier Rust/Bevy web prototype. The Rust project is treated as a design reference, not as a runtime dependency.
+Native Kotlin conversion of the uploaded Rust/Bevy web prototype. The Rust project is treated as a design reference, not as a runtime dependency.
 
 ## Current playable slice
 
@@ -35,4 +35,4 @@ GitHub Actions installs the pinned Gradle 9.5.0 distribution directly and builds
 
 ## Verified locally
 
-The complete `game-core` source and deterministic stress harness were compiled and executed with the installed Kotlin/JVM compiler across 2,000 missions and 42,773 finite fusion results. Android packaging is verified by GitHub Actions after repository bootstrap.
+The complete `game-core` source and its deterministic self-test were compiled and executed with the installed Kotlin/JVM compiler. Android packaging was not executed because this environment has no Android SDK or Gradle distribution.
