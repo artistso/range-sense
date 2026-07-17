@@ -1,0 +1,178 @@
+name: Android CI
+
+on:
+  push:
+    branches: [main, "build/**", "feature/**", "fix/**"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@03ad4de0992f5dab5e18fcb136590ce7c4a0ac95 # v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 9.5.0
+        uses: gradle/actions/setup-gradle@3f131e8634966bd73d06cc69884922b02e6faf92 # v6
+        with:
+          gradle-version: "9.5.0"
+          cache-provider: basic
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4
+        with:
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
+          accept-android-sdk-licenses: true
+          log-accepted-android-sdk-licenses: false
+
+      - name: Verify toolchain
+        shell: bash
+        run: |
+          java -version
+          python3 --version
+          gradle --version
+          sdkmanager --list_installed
+
+      - name: Verify repository and Android policy
+        shell: bash
+        run: |
+          mkdir -p build/ci/evidence
+          set -o pipefail
+          python3 tools/verify_repository_policy.py \
+            --report build/ci/evidence/repository-policy.json \
+            2>&1 | tee build/ci/repository-policy.log
+
+      - name: Run core tests and coverage
+        shell: bash
+        run: |
+          mkdir -p build/ci
+          set -o pipefail
+          gradle --no-daemon --console=plain --stacktrace :game-core:test :game-core:jacocoTestReport 2>&1 | tee build/ci/core-tests.log
+
+      - name: Run Android lint
+        shell: bash
+        run: |
+          mkdir -p build/ci
+          set -o pipefail
+          gradle --no-daemon --console=plain --stacktrace :app:lintDebug 2>&1 | tee build/ci/android-lint.log
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          mkdir -p build/ci
+          set -o pipefail
+          gradle --no-daemon --console=plain --stacktrace :app:assembleDebug 2>&1 | tee build/ci/android-build.log
+
+      - name: Generate and validate CycloneDX SBOM
+        shell: bash
+        run: |
+          mkdir -p build/ci/evidence
+          set -o pipefail
+          gradle --no-daemon --console=plain --stacktrace cyclonedxBom 2>&1 | tee build/ci/cyclonedx.log
+          python3 tools/verify_cyclonedx.py \
+            --json build/reports/cyclonedx/bom.json \
+            --xml build/reports/cyclonedx/bom.xml \
+            --report build/ci/evidence/sbom-validation.json \
+            2>&1 | tee build/ci/sbom-validation.log
+
+      - name: Generate assurance evidence bundle
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/ci/evidence
+          git rev-parse HEAD > build/ci/evidence/checkout-sha.txt
+          printf '%s\n' "$GITHUB_SHA" > build/ci/evidence/build-sha.txt
+          printf '%s\n' "$SOURCE_SHA" > build/ci/evidence/source-head-sha.txt
+          printf '%s\n' "$GITHUB_EVENT_NAME" > build/ci/evidence/event-name.txt
+          printf '%s\n' "$GITHUB_REF" > build/ci/evidence/ref.txt
+          printf '%s\n' "${GITHUB_HEAD_REF:-not-applicable}" > build/ci/evidence/head-ref.txt
+          printf '%s\n' "${GITHUB_BASE_REF:-not-applicable}" > build/ci/evidence/base-ref.txt
+          git status --porcelain=v1 > build/ci/evidence/git-status.txt
+          if [[ -s build/ci/evidence/git-status.txt ]]; then
+            echo "Build modified tracked source files:" >&2
+            cat build/ci/evidence/git-status.txt >&2
+            exit 1
+          fi
+          git ls-files -z \
+            | sort -z \
+            | xargs -0 sha256sum > build/ci/evidence/tracked-files-sha256.txt
+          sha256sum app/build/outputs/apk/debug/app-debug.apk > build/ci/evidence/apk-sha256.txt
+          sha256sum \
+            build/reports/cyclonedx/bom.json \
+            build/reports/cyclonedx/bom.xml \
+            > build/ci/evidence/sbom-sha256.txt
+          sha256sum \
+            build/ci/evidence/repository-policy.json \
+            build/ci/evidence/sbom-validation.json \
+            > build/ci/evidence/policy-report-sha256.txt
+          gradle --no-daemon --console=plain :app:dependencies :game-core:dependencies \
+            > build/ci/evidence/dependency-report.txt
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: range-sense-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload CycloneDX SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: range-sense-cyclonedx-sbom
+          path: build/reports/cyclonedx/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload assurance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: range-sense-assurance-evidence
+          path: build/ci/evidence/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Upload CI diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: range-sense-ci-diagnostics
+          path: build/ci/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload test, coverage, lint, and SBOM reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: range-sense-verification-reports
+          path: |
+            game-core/build/reports/tests/
+            game-core/build/reports/jacoco/
+            app/build/reports/lint-results-debug.html
+            app/build/reports/lint-results-debug.xml
+            build/reports/cyclonedx/
+          if-no-files-found: warn
+          retention-days: 30

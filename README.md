@@ -1,6 +1,6 @@
 # RANGE SENSE — Android Native Vertical Slice
 
-Native Kotlin conversion of the earlier Rust/Bevy web prototype. The Rust project is treated as a design reference, not as a runtime dependency.
+Native Kotlin conversion of the uploaded Rust/Bevy web prototype. The Rust project is treated as a design reference, not as a runtime dependency.
 
 ## Current playable slice
 
@@ -29,10 +29,13 @@ tools/      Standalone core self-test
 
 ## Build
 
-Open the root folder in a current Android Studio installation with Android SDK 37 installed. The project is configured for AGP 9.3.0, Gradle 9.5.0, Kotlin 2.4.0, and the 2026.06 Compose BOM.
+Open the root folder in a current Android Studio installation with Android SDK 36 installed. The project is configured for AGP 9.3.0, Gradle 9.5.0, Kotlin 2.4.0, and the 2026.06 Compose BOM.
 
-GitHub Actions installs the pinned Gradle 9.5.0 distribution directly and builds without relying on a committed wrapper JAR. A wrapper can be generated locally with `gradle wrapper --gradle-version 9.5.0` once Gradle is available.
+GitHub Actions installs the pinned Gradle 9.5.0 distribution and Android API 36 toolchain, runs the pure-Kotlin tests, builds `app-debug.apk`, and publishes the APK and test reports as workflow artifacts. The pipeline does not depend on a committed Gradle wrapper JAR.
 
-## Verified locally
+## Verified
 
-The complete `game-core` source and deterministic stress harness were compiled and executed with the installed Kotlin/JVM compiler across 2,000 missions and 42,773 finite fusion results. Android packaging is verified by GitHub Actions after repository bootstrap.
+- Pure Kotlin deterministic simulation and stress tests pass.
+- Android resources compile and merge successfully in GitHub Actions.
+- The debug APK packages successfully with D8.
+- The generated APK remains a development build; physical Galaxy Tab S10+ stylus latency, frame timing, thermal behavior, and gameplay acceptance testing are still required.
