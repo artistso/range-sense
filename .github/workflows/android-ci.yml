@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -48,8 +48,18 @@ jobs:
         shell: bash
         run: |
           java -version
+          python3 --version
           gradle --version
           sdkmanager --list_installed
+
+      - name: Verify repository and Android policy
+        shell: bash
+        run: |
+          mkdir -p build/ci/evidence
+          set -o pipefail
+          python3 tools/verify_repository_policy.py \
+            --report build/ci/evidence/repository-policy.json \
+            2>&1 | tee build/ci/repository-policy.log
 
       - name: Run core tests and coverage
         shell: bash
@@ -72,6 +82,18 @@ jobs:
           set -o pipefail
           gradle --no-daemon --console=plain --stacktrace :app:assembleDebug 2>&1 | tee build/ci/android-build.log
 
+      - name: Generate and validate CycloneDX SBOM
+        shell: bash
+        run: |
+          mkdir -p build/ci/evidence
+          set -o pipefail
+          gradle --no-daemon --console=plain --stacktrace cyclonedxBom 2>&1 | tee build/ci/cyclonedx.log
+          python3 tools/verify_cyclonedx.py \
+            --json build/reports/cyclonedx/bom.json \
+            --xml build/reports/cyclonedx/bom.xml \
+            --report build/ci/evidence/sbom-validation.json \
+            2>&1 | tee build/ci/sbom-validation.log
+
       - name: Generate assurance evidence bundle
         shell: bash
         env:
@@ -92,10 +114,18 @@ jobs:
             cat build/ci/evidence/git-status.txt >&2
             exit 1
           fi
-          find app/src game-core/src -type f -print0 \
+          git ls-files -z \
             | sort -z \
-            | xargs -0 sha256sum > build/ci/evidence/source-sha256.txt
+            | xargs -0 sha256sum > build/ci/evidence/tracked-files-sha256.txt
           sha256sum app/build/outputs/apk/debug/app-debug.apk > build/ci/evidence/apk-sha256.txt
+          sha256sum \
+            build/reports/cyclonedx/bom.json \
+            build/reports/cyclonedx/bom.xml \
+            > build/ci/evidence/sbom-sha256.txt
+          sha256sum \
+            build/ci/evidence/repository-policy.json \
+            build/ci/evidence/sbom-validation.json \
+            > build/ci/evidence/policy-report-sha256.txt
           gradle --no-daemon --console=plain :app:dependencies :game-core:dependencies \
             > build/ci/evidence/dependency-report.txt
 
@@ -106,6 +136,14 @@ jobs:
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Upload CycloneDX SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: range-sense-cyclonedx-sbom
+          path: build/reports/cyclonedx/
+          if-no-files-found: error
+          retention-days: 30
 
       - name: Upload assurance evidence
         if: always()
@@ -125,7 +163,7 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-      - name: Upload test, coverage, and lint reports
+      - name: Upload test, coverage, lint, and SBOM reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -135,5 +173,6 @@ jobs:
             game-core/build/reports/jacoco/
             app/build/reports/lint-results-debug.html
             app/build/reports/lint-results-debug.xml
+            build/reports/cyclonedx/
           if-no-files-found: warn
           retention-days: 30
