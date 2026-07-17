@@ -2,6 +2,7 @@ package com.soquarky.rangesense.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
@@ -52,5 +53,47 @@ class CoreTests {
             failureReason = "test",
         )
         assertFalse(FisherGate.evaluate(reading).open)
+    }
+
+    @Test
+    fun assuranceEvidenceIsDeterministic() {
+        val first = AssuranceEvidenceBuilder.build(
+            completedState(8183L, listOf(SensorType.SPECTRAL, SensorType.GEOMETRIC)),
+        )
+        val second = AssuranceEvidenceBuilder.build(
+            completedState(8183L, listOf(SensorType.SPECTRAL, SensorType.GEOMETRIC)),
+        )
+
+        assertEquals(first.canonicalRecord, second.canonicalRecord)
+        assertEquals(first.sha256Hex, second.sha256Hex)
+        assertEquals(64, first.sha256Hex.length)
+    }
+
+    @Test
+    fun assuranceEvidenceChangesWhenTheDecisionChanges() {
+        val spectralOnly = AssuranceEvidenceBuilder.build(
+            completedState(8183L, listOf(SensorType.SPECTRAL)),
+        )
+        val spectralAndGeometric = AssuranceEvidenceBuilder.build(
+            completedState(8183L, listOf(SensorType.SPECTRAL, SensorType.GEOMETRIC)),
+        )
+
+        assertNotEquals(spectralOnly.sha256Hex, spectralAndGeometric.sha256Hex)
+    }
+
+    @Test
+    fun assuranceEvidenceRejectsIncompleteMission() {
+        assertFailsWith<IllegalArgumentException> {
+            AssuranceEvidenceBuilder.build(GameEngine.initial(8183L))
+        }
+    }
+
+    private fun completedState(seed: Long, sensors: List<SensorType>): GameState {
+        var state = GameEngine.reduce(GameEngine.initial(seed), GameAction.Start)
+        sensors.forEach { sensor ->
+            state = GameEngine.reduce(state, GameAction.ToggleSensor(sensor))
+        }
+        state = GameEngine.reduce(state, GameAction.UseFusedEstimate)
+        return GameEngine.reduce(state, GameAction.Submit)
     }
 }
