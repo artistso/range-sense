@@ -74,10 +74,18 @@ jobs:
 
       - name: Generate assurance evidence bundle
         shell: bash
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           mkdir -p build/ci/evidence
-          git rev-parse HEAD > build/ci/evidence/commit-sha.txt
+          git rev-parse HEAD > build/ci/evidence/checkout-sha.txt
+          printf '%s\n' "$GITHUB_SHA" > build/ci/evidence/build-sha.txt
+          printf '%s\n' "$SOURCE_SHA" > build/ci/evidence/source-head-sha.txt
+          printf '%s\n' "$GITHUB_EVENT_NAME" > build/ci/evidence/event-name.txt
+          printf '%s\n' "$GITHUB_REF" > build/ci/evidence/ref.txt
+          printf '%s\n' "${GITHUB_HEAD_REF:-not-applicable}" > build/ci/evidence/head-ref.txt
+          printf '%s\n' "${GITHUB_BASE_REF:-not-applicable}" > build/ci/evidence/base-ref.txt
           git status --porcelain=v1 > build/ci/evidence/git-status.txt
           if [[ -s build/ci/evidence/git-status.txt ]]; then
             echo "Build modified tracked source files:" >&2
