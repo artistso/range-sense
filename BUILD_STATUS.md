@@ -14,16 +14,25 @@
 - Direct S Pen hover, pressure, drag, eraser, and stylus-first event consumption implemented.
 - No WebView and no network permission.
 - Core compiled with Kotlin/JVM and self-test executed successfully.
-
+- GitHub Actions Android API 36 toolchain configured successfully.
+- Pure Kotlin unit and stress tests pass in CI.
+- Android resource processing and Kotlin compilation pass in CI.
+- Debug APK builds successfully and is published as a workflow artifact.
 
 ## Stress-test result
 
 The pure Kotlin core was executed across 2,000 deterministic missions and all 25 sensor subsets that fit the compute budget. The run checked 42,773 finite fusion results, information bounds, weight normalization, scoring boundaries, budget invariants, and abstention exploit resistance. No invariant failed.
 
-## Not yet verified in this environment
+## Current build artifact
 
-- Android resource merge, D8/R8, APK packaging, and instrumentation tests.
-- Physical Samsung Galaxy Tab S10+ frame timing and stylus latency.
-- Android Studio sync using the configured AGP/Gradle toolchain.
+The CI-built development APK is produced from pull request branch `build/native-kotlin-bootstrap`. It is a debug-signed engineering build, not a production release.
 
-Those items require Android SDK 37, the Gradle distribution, and a physical or emulated Android target. They are not claimed as complete.
+## Not yet verified
+
+- Installation and gameplay acceptance on the physical Samsung Galaxy Tab S10+.
+- Physical-device S Pen latency, palm rejection, hover behavior, and eraser behavior.
+- 60/120 Hz frame timing, battery use, and thermal stability.
+- Android instrumentation and UI automation tests.
+- Release signing, Play App Signing, and reproducible release bundle generation.
+
+These items remain explicit release gates and are not claimed as complete.
