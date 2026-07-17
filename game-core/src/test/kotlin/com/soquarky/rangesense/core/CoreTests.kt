@@ -56,11 +56,27 @@ class CoreTests {
     }
 
     @Test
-    fun nonFiniteEvidenceFailsClosedAtGateAndFusion() {
+    fun nonFiniteSensorEvidenceIsRejectedAtTheModelBoundary() {
+        assertFailsWith<IllegalArgumentException> {
+            SensorReading(
+                sensorType = SensorType.GEOMETRIC,
+                estimateMeters = Double.POSITIVE_INFINITY,
+                sigmaMeters = 10.0,
+                observedInformationPerMeterSquared = 0.01,
+                nuisanceCoupling = 0.2,
+                conditionalInformationPerMeterSquared = 0.005,
+                hardFailure = false,
+                failureReason = null,
+            )
+        }
+    }
+
+    @Test
+    fun overflowingVarianceFailsClosedAtFusion() {
         val reading = SensorReading(
             sensorType = SensorType.GEOMETRIC,
-            estimateMeters = Double.POSITIVE_INFINITY,
-            sigmaMeters = 10.0,
+            estimateMeters = 100.0,
+            sigmaMeters = Double.MAX_VALUE,
             observedInformationPerMeterSquared = 0.01,
             nuisanceCoupling = 0.2,
             conditionalInformationPerMeterSquared = 0.005,
