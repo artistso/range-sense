@@ -49,8 +49,19 @@ jobs:
           gradle --version
           sdkmanager --list_installed
 
-      - name: Run core tests and build debug APK
-        run: gradle --no-daemon --stacktrace :game-core:test :app:assembleDebug
+      - name: Run core tests
+        shell: bash
+        run: |
+          mkdir -p build/ci
+          set -o pipefail
+          gradle --no-daemon --console=plain --stacktrace :game-core:test 2>&1 | tee build/ci/core-tests.log
+
+      - name: Build debug APK
+        shell: bash
+        run: |
+          mkdir -p build/ci
+          set -o pipefail
+          gradle --no-daemon --console=plain --stacktrace :app:assembleDebug 2>&1 | tee build/ci/android-build.log
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
@@ -58,6 +69,15 @@ jobs:
           name: range-sense-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload CI diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: range-sense-ci-diagnostics
+          path: build/ci/
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Upload test reports
